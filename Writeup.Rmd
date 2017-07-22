@@ -1,0 +1,101 @@
+---
+title: "Practivle Machine Learning Course Project"
+date: "7/22/2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, cache = TRUE)
+```
+
+## Summary
+
+In this project, we will use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants to predict the manner in which they did the exercise.
+
+## Data Processing
+
+### Download the Data
+
+```{r download}
+library(caret)
+trainUrl <-"https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+testUrl <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+train <- "./data/training.csv"
+test  <- "./data/testing.csv"
+if (!file.exists("./data")) {
+  dir.create("./data")
+}
+if (!file.exists(train)) {
+  download.file(trainUrl, destfile=train, method="curl")
+}
+if (!file.exists(test)) {
+  download.file(testUrl, destfile=test, method="curl")
+}
+```
+
+### Read the Data
+```{r read}
+training <- read.csv("./data/training.csv")
+testing <- read.csv("./data/testing.csv")
+```
+
+### Clean the Data
+
+We will remove some columns that contain NA or missing or meaningless values.
+
+```{r clean}
+newTrain <- training[, names(training)[sapply(training, function (x)
+        ! (any(is.na(x) | x == "")))]]
+newTest <- testing[, names(testing)[sapply(testing, function (x)
+        ! (any(is.na(x) | x == "")))]]
+# Remove the first column (serial number) and the fifth column (cvts_timestamp)
+cleanTrain <- newTrain[, -c(1,5)]
+cleanTest <- newTest[,-c(1,5)]
+```
+
+So now, we have the cleaned training data set with 19633 observations and 58 variables, and cleaned tesring data set with 20 observations and 58 variables.
+
+### Split the Training Data
+
+Next, we will split the training data above to get a subset training data set (70 %) and a cross validation data set (30 %).
+
+```{r validation}
+set.seed(123456)
+inTrain <- createDataPartition(cleanTrain$classe, p = 0.7, list = FALSE)
+subTrain <- cleanTrain[inTrain,]
+subValidation <- cleanTrain[-inTrain,]
+```
+
+## Prediction Model
+
+We will use the Random Forest algorithm to build the prediction model.
+
+```{r model}
+controlRf <- trainControl(method="cv", 5)
+model <- train(classe ~ ., method = "rf", data = subTrain, trControl=controlRf, ntree=250)
+```
+
+Next we will test the model on the validation data set.
+
+```{r validate}
+predValidation <- predict(model, subValidation)
+confusionMatrix(subValidation$classe, predValidation)
+```
+
+As we can see, the accuracy is pretty high, at above 99%. So we would accept this model. Details of the model are:
+
+```{r}
+model
+model$finalModel
+```
+
+## Final Prediction
+
+As last, we will apply our prediction model to the testing data set. 
+
+```{r predict}
+predTest <- predict(model, cleanTest)
+predTest
+```
+
+
